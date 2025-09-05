@@ -1,64 +1,41 @@
 """
-Util file with helper functions
+Helpers for tests
 """
 
-from typing import List, Optional
 
-from src.schema import Game, GameStatus, Move
-
-VICTORY_CONDITIONS = [
-    # rows
-    [(0, 0), (0, 1), (0, 2)],
-    [(1, 0), (1, 1), (1, 2)],
-    [(2, 0), (2, 1), (2, 2)],
-    # cols
-    [(0, 0), (1, 0), (2, 0)],
-    [(0, 1), (1, 1), (2, 1)],
-    [(0, 2), (1, 2), (2, 2)],
-    # diags
-    [(0, 0), (1, 1), (2, 2)],
-    [(0, 2), (1, 1), (2, 0)],
-]
-
-
-def construct_board(moves: List[Move]) -> List[List[Optional[int]]]:
+def create_two_players_and_start(session):
     """
-    Method to construct the 3x3 board
+    Helper to create two players and start a game
     """
-    board: List[List[Optional[int]]] = [[None for _ in range(3)] for _ in range(3)]
-    for move in moves:
-        board[move.row][move.col] = move.user_id
+    u1 = session.create_user("alice")
+    u2 = session.create_user("bob")
+    game_id = session.create_game(u1)
+    session.join_game(game_id, u2)
+    return u1, u2, game_id
 
-    return board
 
-
-def find_winner(board: List[List[Optional[int]]]) -> Optional[int]:
+def play_moves(session, game_id, seq):
     """
-    Method to determine the winner
+    Helper to make a move in the game
     """
-    for condition in VICTORY_CONDITIONS:
-        ids = [board[row][col] for row, col in condition]
-        if ids[0] is not None and ids.count(ids[0]) == 3:
-            return ids[0]
-
-    return None
+    for u, r, c in seq:
+        session.move(game_id, u, r, c)
 
 
-def next_player(game: Game) -> Optional[int]:
+def create_user(client, name: str) -> int:
     """
-    Method to figure out the next player to move
+    Helper to create a user
     """
-    if game.status != GameStatus.in_progress:
-        return None
-
-    order = game.turn_no % 2  # even goes first, odd goes second
-    order_dict = {player.player_order: player.user_id for player in game.players}
-    return order_dict.get(order)
+    resp = client.post("/users", json={"name": name})
+    return resp.json()["user_id"]
 
 
-def players_in_order(game: Game) -> List[int | None]:
+def create_started_game(client, u1_name="alice", u2_name="bob"):
     """
-    Method to get the players in the order of play
+    Helper to create an in-progess game
     """
-    order_dict = {player.player_order: player.user_id for player in game.players}
-    return [order_dict.get(0), order_dict.get(1)]
+    u1 = create_user(client, u1_name)
+    u2 = create_user(client, u2_name)
+    game = client.post("/game", json={"creator_user_id": u1}).json()["game_id"]
+    resp = client.post(f"/game/{game}/join", json={"user_id": u2})
+    return u1, u2, game
