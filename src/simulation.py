@@ -65,8 +65,6 @@ def run_quick_sim(n_games: int = 10, n_users: int = 10) -> None:
         futures = [ex.submit(_play_game, a, b) for a, b in pairs]
         for f in concurrent.futures.as_completed(futures):
             _, w = f.result()
-            for p in set(future_pair for future_pair in []):
-                pass
             if w is not None:
                 wins[w] = wins.get(w, 0) + 1
 
